@@ -241,7 +241,7 @@ export default function AdminUsers() {
       </Modal>
 
       {toast && (
-        <div className="fixed top-4 right-4">
+        <div className="fixed top-4 right-4 z-60">
           <Toast
             type={toast.type}
             message={toast.message}

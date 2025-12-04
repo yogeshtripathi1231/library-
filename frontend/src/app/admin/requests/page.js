@@ -34,7 +34,11 @@ export default function AdminRequests() {
       const response = await requestService.getAllRequests(statusFilter);
       setRequests(response.requests);
     } catch (error) {
-      setToast({ type: 'error', message: 'Failed to load requests' });
+      const message = error.response?.data?.message || 'Failed to load requests';
+      setToast({ type: 'error', message });
+      if (error.response?.status === 401) {
+        router.push('/admin/login');
+      }
     } finally {
       setRequestsLoading(false);
     }
@@ -92,12 +96,12 @@ export default function AdminRequests() {
           onChange={(e) => setStatusFilter(e.target.value)}
           className="glass-input"
         >
-          <option value="">All Requests</option>
-          <option value="Pending">Pending</option>
-          <option value="Approved">Approved</option>
-          <option value="Issued">Issued</option>
-          <option value="Rejected">Rejected</option>
-          <option value="Returned">Returned</option>
+          <option value="" className='text-black'>All Requests</option>
+          <option value="Pending" className='text-black'>Pending</option>
+          <option value="Approved" className='text-black'>Approved</option>
+          <option value="Issued" className='text-black'>Issued</option>
+          <option value="Rejected" className='text-black'>Rejected</option>
+          <option value="Returned" className='text-black'>Returned</option>
         </select>
       </motion.div>
 
@@ -204,7 +208,7 @@ export default function AdminRequests() {
       )}
 
       {toast && (
-        <div className="fixed top-4 right-4">
+        <div className="fixed top-4 right-4 z-60">
           <Toast
             type={toast.type}
             message={toast.message}

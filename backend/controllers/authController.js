@@ -40,7 +40,55 @@ exports.register = async (req, res) => {
   }
 };
 
-exports.login = async (req, res) => {
+// Admin registration (requires ADMIN_SECRET env var)
+exports.registerAdmin = async (req, res) => {
+  try {
+    // Prevent public admin creation unless ADMIN_SECRET is configured and provided
+    const adminSecret = process.env.ADMIN_SECRET;
+    const providedSecret = req.headers['x-admin-secret'] || req.body.adminSecret;
+
+    if (!adminSecret) {
+      return res.status(403).json({ message: 'Admin registration is disabled on this server.' });
+    }
+
+    if (providedSecret !== adminSecret) {
+      return res.status(401).json({ message: 'Invalid admin secret.' });
+    }
+
+    const validation = validateRequest(registerSchema, req.body);
+
+    if (!validation.valid) {
+      return res.status(400).json({ errors: validation.errors });
+    }
+
+    const { name, email, password } = validation.data;
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
+
+    // Create new admin user
+    const user = new User({ name, email, password, role: 'admin' });
+    await user.save();
+
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
+
+    res.status(201).json({
+      message: 'Admin registered successfully',
+      user: user.toJSON(),
+      accessToken,
+      refreshToken,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Admin registration failed', error: error.message });
+  }
+};
+
+// Admin login (ensures the user has role 'admin')
+exports.loginAdmin = async (req, res) => {
   try {
     const validation = validateRequest(loginSchema, req.body);
 
@@ -53,6 +101,81 @@ exports.login = async (req, res) => {
     // Find user by email
     const user = await User.findOne({ email });
     if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Ensure admin role
+    if (user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. Admins only.' });
+    }
+
+    // Compare password
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
+
+    res.status(200).json({
+      message: 'Admin login successful',
+      user: user.toJSON(),
+      accessToken,
+      refreshToken,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Admin login failed', error: error.message });
+  }
+};
+
+// Create admin by existing admin (requires adminMiddleware)
+exports.createAdminByAdmin = async (req, res) => {
+  try {
+    const validation = validateRequest(registerSchema, req.body);
+
+    if (!validation.valid) {
+      return res.status(400).json({ errors: validation.errors });
+    }
+
+    const { name, email, password } = validation.data;
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
+
+    // Create new admin user
+    const user = new User({ name, email, password, role: 'admin' });
+    await user.save();
+
+    res.status(201).json({
+      message: 'Admin created successfully',
+      user: user.toJSON(),
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Create admin failed', error: error.message });
+  }
+};
+
+exports.login = async (req, res) => {
+  try {
+    const validation = validateRequest(loginSchema, req.body);
+    console.log(validation)
+
+    if (!validation.valid) {
+      return res.status(400).json({ errors: validation.errors });
+    }
+
+    const { email, password } = validation.data;
+
+    console.log(email)
+
+    // Find user by email
+    const user = await User.findOne({ email });
+    console.log(user)
+    if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
@@ -62,8 +185,12 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
+    console.log('matched')
+
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
+
+    console.log('adminnnn')
 
     res.status(200).json({
       message: "Login successful",

@@ -38,7 +38,9 @@ export default function Dashboard() {
     try {
       setBooksLoading(true);
       const response = await bookService.getAllBooks();
+      console.log(response)
       setBooks(response.books);
+  setFilteredBooks(response.books);
       const uniqueCategories = [...new Set(response.books.map((b) => b.category))];
       setCategories(uniqueCategories);
     } catch (error) {
@@ -132,9 +134,9 @@ export default function Dashboard() {
             onChange={handleCategoryFilter}
             className="glass-input flex-1 min-w-[200px]"
           >
-            <option value="">All Categories</option>
+            <option value="" className='text-black'>All Categories</option>
             {categories.map((cat) => (
-              <option key={cat} value={cat}>
+              <option key={cat} value={cat} className='text-black'>
                 {cat}
               </option>
             ))}
@@ -227,7 +229,7 @@ export default function Dashboard() {
       </Modal>
 
       {toast && (
-        <div className="fixed top-4 right-4">
+        <div className="fixed top-4 right-4 z-60">
           <Toast
             type={toast.type}
             message={toast.message}

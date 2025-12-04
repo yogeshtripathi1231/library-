@@ -45,7 +45,12 @@ export default function AdminBooks() {
       const response = await bookService.getAllBooks();
       setBooks(response.books);
     } catch (error) {
-      setToast({ type: 'error', message: 'Failed to load books' });
+      const message = error.response?.data?.message || 'Failed to load books';
+      setToast({ type: 'error', message });
+      if (error.response?.status === 401) {
+        // Redirect to admin login if unauthorized
+        router.push('/admin/login');
+      }
     } finally {
       setBooksLoading(false);
     }
@@ -288,7 +293,7 @@ export default function AdminBooks() {
       </Modal>
 
       {toast && (
-        <div className="fixed top-4 right-4">
+        <div className="fixed top-4 right-4 z-60">
           <Toast
             type={toast.type}
             message={toast.message}

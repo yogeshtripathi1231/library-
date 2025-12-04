@@ -31,8 +31,10 @@ const updateBookSchema = Joi.object({
   coverImageUrl: Joi.string().allow(""),
 });
 
-const validateRequest = (schema, data) => {
-  const { error, value } = schema.validate(data, { abortEarly: false });
+const validateRequest = (schema, data, options = {}) => {
+  // default options: don't abort early; allow caller to pass stripUnknown or allowUnknown
+  const validateOptions = Object.assign({ abortEarly: false }, options);
+  const { error, value } = schema.validate(data, validateOptions);
   if (error) {
     const details = error.details.map((d) => ({
       field: d.path.join("."),

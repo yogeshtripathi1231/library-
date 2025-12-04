@@ -4,7 +4,9 @@ const authMiddleware = require("../middlewares/authMiddleware");
 const adminMiddleware = async (req, res, next) => {
   try {
     authMiddleware(req, res, async () => {
+   
       const user = await User.findById(req.userId);
+ 
 
       if (!user || user.role !== "admin") {
         return res

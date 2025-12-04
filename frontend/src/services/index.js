@@ -96,3 +96,10 @@ export const userService = {
     return response.data;
   },
 };
+
+export const adminService = {
+  createAdmin: async (data) => {
+    const response = await api.post('/admin/create', data);
+    return response.data;
+  },
+};

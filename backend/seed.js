@@ -28,8 +28,8 @@ const seedDatabase = async () => {
     await Request.deleteMany({});
     console.log('Cleared existing data');
 
-    // Create users
-    const users = await User.insertMany([
+    // Create users (hash passwords first because insertMany bypasses mongoose pre 'save' hooks)
+    const usersData = [
       {
         name: 'Admin User',
         email: 'admin@example.com',
@@ -48,7 +48,15 @@ const seedDatabase = async () => {
         password: 'password123',
         role: 'user',
       },
-    ]);
+    ];
+
+    // Hash passwords before insert
+    for (const u of usersData) {
+      const salt = await bcrypt.genSalt(10);
+      u.password = await bcrypt.hash(u.password, salt);
+    }
+
+    const users = await User.insertMany(usersData);
     console.log('✓ Users created:', users.length);
 
     // Create books

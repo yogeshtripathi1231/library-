@@ -1,15 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { authService } from '@/services';
 import { useAuth } from '@/context/AuthContext';
 import Toast from '@/components/Toast';
 import { motion } from 'framer-motion';
-import { BookOpen } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
-export default function Login() {
+export default function AdminLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,12 +23,21 @@ export default function Login() {
 
     try {
       const response = await authService.login({ email, password });
+
+      // Ensure only admin users can sign in from this page
+      if (response.user?.role !== 'admin') {
+        setToast({ type: 'error', message: 'Access denied. Not an admin user.' });
+        setLoading(false);
+        return;
+      }
+
+      // Save auth state via context (stores tokens in localStorage)
       login(response.user, response.accessToken, response.refreshToken);
-      setToast({ type: 'success', message: 'Login successful!' });
+      setToast({ type: 'success', message: 'Admin login successful!' });
 
       setTimeout(() => {
-        router.push(response.user.role === 'admin' ? '/admin/dashboard' : '/dashboard');
-      }, 1000);
+        router.push('/admin/dashboard');
+      }, 800);
     } catch (error) {
       const message = error.response?.data?.message || 'Login failed. Please try again.';
       setToast({ type: 'error', message });
@@ -46,10 +55,10 @@ export default function Login() {
       >
         <div className="text-center space-y-2">
           <div className="flex justify-center mb-4">
-            <BookOpen className="w-10 h-10 text-blue-400" />
+            <ShieldCheck className="w-10 h-10 text-indigo-400" />
           </div>
-          <h1 className="text-3xl font-bold gradient-text">LibraryHub</h1>
-          <p className="text-gray-400">Sign in to your account</p>
+          <h1 className="text-3xl font-bold gradient-text">Admin Portal</h1>
+          <p className="text-gray-400">Sign in with your admin account</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -60,7 +69,7 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="glass-input w-full"
-              placeholder="your@email.com"
+              placeholder="admin@example.com"
               required
             />
           </div>
@@ -82,28 +91,23 @@ export default function Login() {
             disabled={loading}
             className="glass-button w-full disabled:opacity-50"
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Signing in...' : 'Sign In as Admin'}
           </button>
         </form>
 
         <p className="text-center text-sm text-gray-400">
-          Don't have an account?{' '}
-          <Link href="/signup" className="text-blue-400 hover:text-blue-300">
-            Sign up
+          Want the regular user portal?{' '}
+          <Link href="/login" className="text-blue-400 hover:text-blue-300">
+            Go to User Login
           </Link>
         </p>
 
-    
-      
+       
       </motion.div>
 
       {toast && (
         <div className="fixed top-4 right-4 z-60">
-          <Toast
-            type={toast.type}
-            message={toast.message}
-            onClose={() => setToast(null)}
-          />
+          <Toast type={toast.type} message={toast.message} onClose={() => setToast(null)} />
         </div>
       )}
     </div>

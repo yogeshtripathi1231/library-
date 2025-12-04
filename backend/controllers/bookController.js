@@ -19,6 +19,7 @@ exports.getAllBooks = async (req, res) => {
     }
 
     const books = await Book.find(query).sort({ createdAt: -1 });
+    
 
     res.status(200).json({ books });
   } catch (error) {
@@ -65,8 +66,9 @@ exports.createBook = async (req, res) => {
 
 exports.updateBook = async (req, res) => {
   try {
-    const validation = validateRequest(updateBookSchema, req.body);
-
+  // Strip unknown fields (like _id, createdAt) which may be present when the client
+  // sends the full book object. This prevents Joi from rejecting the request.
+  const validation = validateRequest(updateBookSchema, req.body, { stripUnknown: true });
     if (!validation.valid) {
       return res.status(400).json({ errors: validation.errors });
     }
@@ -76,6 +78,7 @@ exports.updateBook = async (req, res) => {
       validation.data,
       { new: true, runValidators: true }
     );
+
 
     if (!book) {
       return res.status(404).json({ message: "Book not found" });
