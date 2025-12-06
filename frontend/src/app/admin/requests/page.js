@@ -145,6 +145,12 @@ export default function AdminRequests() {
                       <span className="text-gray-400">Requested:</span>{' '}
                       {new Date(request.requestDate).toLocaleDateString()}
                     </p>
+                    {request.dueDate && (
+                      <p className="text-gray-300">
+                        <span className="text-gray-400">Due:</span>{' '}
+                        {new Date(request.dueDate).toLocaleDateString()}
+                      </p>
+                    )}
                     {request.issueDate && (
                       <p className="text-gray-300">
                         <span className="text-gray-400">Issued:</span>{' '}
@@ -162,6 +168,26 @@ export default function AdminRequests() {
 
                 <div className="flex flex-col justify-between">
                   <StatusBadge status={request.status} />
+                  {/* Show due/late/fine indicators for admins */}
+                  {request.computed && request.status === 'Issued' && (
+                    <div className="mt-3 text-right">
+                      {request.computed.notifySoon && (
+                        <span className="inline-block text-xs bg-yellow-500/20 border border-yellow-400 text-yellow-200 px-2 py-1 rounded">Due in {request.computed.daysUntilDue} day{request.computed.daysUntilDue !== 1 ? 's' : ''}</span>
+                      )}
+                      {request.computed.isLate && (
+                        <div className="mt-1">
+                          <span className="inline-block text-xs bg-red-500/20 border border-red-400 text-red-200 px-2 py-1 rounded">Late by {request.computed.daysLate} day{request.computed.daysLate !== 1 ? 's' : ''}</span>
+                          <div className="text-xs text-red-300 mt-1">Fine due: ₹{request.computed.fineDue}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {request.status === 'Returned' && request.fine > 0 && (
+                    <div className="mt-3 text-right">
+                      <span className="inline-block text-xs bg-red-500/20 border border-red-400 text-red-200 px-2 py-1 rounded">Returned late — Fine: ₹{request.fine}</span>
+                    </div>
+                  )}
 
                   {request.status === 'Pending' && (
                     <div className="flex gap-2 mt-4">

@@ -31,7 +31,16 @@ export default function MyRequests() {
     try {
       setRequestsLoading(true);
       const response = await requestService.getUserRequests();
-      setRequests(response.requests);
+      const reqs = response.requests || [];
+      setRequests(reqs);
+
+      // Notify user if any requests are due soon (computed.notifySoon)
+      const dueSoon = reqs.filter(r => r.computed && r.computed.notifySoon);
+      if (dueSoon.length > 0) {
+        const titles = dueSoon.map(r => r.bookId?.title).filter(Boolean).slice(0,3).join(', ');
+        const more = dueSoon.length > 3 ? ` and ${dueSoon.length - 3} more` : '';
+        setToast({ type: 'warning', message: `Upcoming due: ${titles}${more} — return within 2 days` });
+      }
     } catch (error) {
       setToast({ type: 'error', message: 'Failed to load requests' });
     } finally {
@@ -112,6 +121,24 @@ export default function MyRequests() {
 
                 <div className="flex flex-col items-start md:items-end justify-between h-full">
                   <StatusBadge status={request.status} />
+                  {request.computed && request.status === 'Issued' && (
+                    <div className="mt-2 text-right">
+                      {request.computed.notifySoon && (
+                        <span className="inline-block text-xs bg-yellow-500/20 border border-yellow-400 text-yellow-200 px-2 py-1 rounded">Due in {request.computed.daysUntilDue} day{request.computed.daysUntilDue !== 1 ? 's' : ''}</span>
+                      )}
+                      {request.computed.isLate && (
+                        <div className="mt-1">
+                          <span className="inline-block text-xs bg-red-500/20 border border-red-400 text-red-200 px-2 py-1 rounded">Late by {request.computed.daysLate} day{request.computed.daysLate !== 1 ? 's' : ''}</span>
+                          <div className="text-xs text-red-300 mt-1">Fine due: ₹{request.computed.fineDue}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {request.status === 'Returned' && request.fine > 0 && (
+                    <div className="mt-2 text-right">
+                      <span className="inline-block text-xs bg-red-500/20 border border-red-400 text-red-200 px-2 py-1 rounded">Returned late — Fine: ₹{request.fine}</span>
+                    </div>
+                  )}
                   <p className="text-xs text-gray-500 mt-4">
                     {request.status === 'Pending' &&
                       'Waiting for admin approval'}

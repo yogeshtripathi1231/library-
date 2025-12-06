@@ -29,6 +29,16 @@ const requestSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // When the book is issued, the expected due date for return
+    dueDate: {
+      type: Date,
+      default: null,
+    },
+    // Fine recorded when book is returned (or computed dynamically)
+    fine: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

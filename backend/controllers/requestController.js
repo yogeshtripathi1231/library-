@@ -2,6 +2,10 @@ const Request = require("../models/Request");
 const Book = require("../models/Book");
 const User = require("../models/User");
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const LOAN_DAYS = parseInt(process.env.LOAN_DAYS, 10) || 14; // default loan period
+const FINE_PER_DAY = parseFloat(process.env.FINE_PER_DAY) || 5; // default fine per day
+
 exports.createRequest = async (req, res) => {
   try {
     const { bookId } = req.body;
@@ -56,7 +60,44 @@ exports.getUserRequests = async (req, res) => {
       .populate("bookId")
       .sort({ requestDate: -1 });
 
-    res.status(200).json({ requests });
+    // augment requests with computed fields: daysUntilDue, notifySoon, isLate, daysLate, fineDue
+    const now = new Date();
+    const augmented = requests.map((r) => {
+      const obj = r.toObject();
+      obj.computed = {};
+
+      if (obj.status === "Issued") {
+        if (obj.dueDate) {
+          const due = new Date(obj.dueDate);
+          const msUntil = due.getTime() - now.getTime();
+          const daysUntil = Math.ceil(msUntil / MS_PER_DAY);
+          obj.computed.daysUntilDue = daysUntil;
+          obj.computed.notifySoon = daysUntil <= 2 && daysUntil >= 0;
+          obj.computed.isLate = now > due;
+          obj.computed.daysLate = obj.computed.isLate ? Math.ceil((now.getTime() - due.getTime()) / MS_PER_DAY) : 0;
+          obj.computed.fineDue = obj.computed.daysLate * FINE_PER_DAY;
+        }
+      }
+
+      if (obj.status === "Returned") {
+        if (obj.dueDate && obj.returnDate) {
+          const due = new Date(obj.dueDate);
+          const ret = new Date(obj.returnDate);
+          const daysLate = ret.getTime() > due.getTime() ? Math.ceil((ret.getTime() - due.getTime()) / MS_PER_DAY) : 0;
+          obj.computed.daysLate = daysLate;
+          obj.computed.isLate = daysLate > 0;
+          obj.computed.fineDue = (obj.fine || 0) || daysLate * FINE_PER_DAY;
+        } else {
+          obj.computed.fineDue = obj.fine || 0;
+          obj.computed.isLate = false;
+          obj.computed.daysLate = 0;
+        }
+      }
+
+      return obj;
+    });
+
+    res.status(200).json({ requests: augmented });
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch requests", error: error.message });
   }
@@ -76,7 +117,43 @@ exports.getAllRequests = async (req, res) => {
       .populate("bookId")
       .sort({ requestDate: -1 });
 
-    res.status(200).json({ requests });
+    const now = new Date();
+    const augmented = requests.map((r) => {
+      const obj = r.toObject();
+      obj.computed = {};
+
+      if (obj.status === "Issued") {
+        if (obj.dueDate) {
+          const due = new Date(obj.dueDate);
+          const msUntil = due.getTime() - now.getTime();
+          const daysUntil = Math.ceil(msUntil / MS_PER_DAY);
+          obj.computed.daysUntilDue = daysUntil;
+          obj.computed.notifySoon = daysUntil <= 2 && daysUntil >= 0;
+          obj.computed.isLate = now > due;
+          obj.computed.daysLate = obj.computed.isLate ? Math.ceil((now.getTime() - due.getTime()) / MS_PER_DAY) : 0;
+          obj.computed.fineDue = obj.computed.daysLate * FINE_PER_DAY;
+        }
+      }
+
+      if (obj.status === "Returned") {
+        if (obj.dueDate && obj.returnDate) {
+          const due = new Date(obj.dueDate);
+          const ret = new Date(obj.returnDate);
+          const daysLate = ret.getTime() > due.getTime() ? Math.ceil((ret.getTime() - due.getTime()) / MS_PER_DAY) : 0;
+          obj.computed.daysLate = daysLate;
+          obj.computed.isLate = daysLate > 0;
+          obj.computed.fineDue = (obj.fine || 0) || daysLate * FINE_PER_DAY;
+        } else {
+          obj.computed.fineDue = obj.fine || 0;
+          obj.computed.isLate = false;
+          obj.computed.daysLate = 0;
+        }
+      }
+
+      return obj;
+    });
+
+    res.status(200).json({ requests: augmented });
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch requests", error: error.message });
   }
@@ -106,9 +183,13 @@ exports.updateRequest = async (req, res) => {
       await request.bookId.save();
     }
 
-    // If issuing, set issueDate
+    // If issuing, set issueDate and dueDate
     if (status === "Issued") {
-      request.issueDate = new Date();
+      const issueDate = new Date();
+      request.issueDate = issueDate;
+      // dueDate = issueDate + LOAN_DAYS
+      const due = new Date(issueDate.getTime() + LOAN_DAYS * MS_PER_DAY);
+      request.dueDate = due;
     }
 
     request.status = status;
@@ -139,8 +220,20 @@ exports.returnBook = async (req, res) => {
     }
 
     // Mark as returned and set return date
+    const returnDate = new Date();
     request.status = "Returned";
-    request.returnDate = new Date();
+    request.returnDate = returnDate;
+
+    // Calculate fine if returned late
+    if (request.dueDate) {
+      const due = new Date(request.dueDate);
+      if (returnDate.getTime() > due.getTime()) {
+        const daysLate = Math.ceil((returnDate.getTime() - due.getTime()) / MS_PER_DAY);
+        request.fine = daysLate * FINE_PER_DAY;
+      } else {
+        request.fine = 0;
+      }
+    }
 
     // Increase book stock
     request.bookId.stock += 1;
